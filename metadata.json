@@ -1,0 +1,7 @@
+{
+  "name": "MZ+ Elite Business System & SQL Console",
+  "description": "Système de gestion premium avec console SQL intégrée pour les administrateurs MZ+.",
+  "requestFramePermissions": [
+    "notifications"
+  ]
+}

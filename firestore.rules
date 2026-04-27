@@ -1,0 +1,107 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitive Definition
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- ENTITY VALIDATIONS ---
+
+    function isValidUser(data) {
+      let requiredFields = ['id', 'fullName', 'email'];
+      return data.keys().hasAll(requiredFields)
+        && data.id is string && data.id.size() <= 128
+        && data.fullName is string && data.fullName.size() <= 100
+        && data.email is string && data.email.size() <= 100
+        && (data.get('fcmToken', '') is string && data.get('fcmToken', '').size() <= 512)
+        && (data.get('userLevel', 'standard') in ['standard', 'niveau_mz_plus']);
+    }
+
+    function isValidChatMessage(data) {
+      let requiredFields = ['chatId', 'senderId', 'text', 'createdAt'];
+      return data.keys().hasAll(requiredFields)
+        && data.chatId is string && data.chatId.size() <= 128
+        && data.senderId == request.auth.uid
+        && data.text is string && data.text.size() <= 2000
+        && data.createdAt == request.time;
+    }
+
+    function isValidNotification(data) {
+      let requiredFields = ['userId', 'title', 'content', 'createdAt'];
+      return data.keys().hasAll(requiredFields)
+        && data.userId is string && data.userId.size() <= 128
+        && data.title is string && data.title.size() <= 100
+        && data.content is string && data.content.size() <= 600
+        && data.createdAt == request.time;
+    }
+
+    // --- COLLECTION RULES ---
+
+    // Users
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'fcmToken', 'lastFcmSync', 'userLevel']);
+      allow delete: if isAdmin();
+    }
+
+    // Admins (Read-only by signed-in for rule checks, write by super admin only)
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Managed via Firebase Console or special script
+    }
+
+    // Chats
+    match /chats/{chatId} {
+      allow get: if isSignedIn() && (isAdmin() || exists(/databases/$(database)/documents/chats/$(chatId)/participants/$(request.auth.uid)));
+      allow create: if isSignedIn();
+      
+      match /messages/{messageId} {
+        allow list: if isSignedIn() && (isAdmin() || exists(/databases/$(database)/documents/chats/$(chatId)/participants/$(request.auth.uid)));
+        allow create: if isSignedIn() && isValidChatMessage(incoming());
+      }
+      
+      match /participants/{participantId} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin();
+      }
+    }
+
+    // Notifications
+    match /notifications/{notificationId} {
+      allow get: if isSignedIn() && (isAdmin() || existing().userId == request.auth.uid);
+      allow list: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
+      allow create: if isAdmin(); // Only admins can create system-wide notifications
+      allow update: if isOwner(existing().userId) && incoming().diff(existing()).affectedKeys().hasOnly(['isRead']);
+      allow delete: if isAdmin() || isOwner(existing().userId);
+    }
+  }
+}

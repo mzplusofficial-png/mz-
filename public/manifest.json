@@ -1,0 +1,31 @@
+{
+  "id": "mz-plus-elite-system",
+  "name": "Millionaire Zone Plus - Elite",
+  "short_name": "MZ+ Elite",
+  "description": "Système Élite Millionaire Zone Plus",
+  "icons": [
+    {
+      "src": "https://ui-avatars.com/api/?name=MZ&background=ca8a04&color=fff&size=192&format=png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "https://ui-avatars.com/api/?name=MZ&background=ca8a04&color=fff&size=512&format=png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "https://ui-avatars.com/api/?name=MZ&background=ca8a04&color=fff&size=512&format=png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#ca8a04",
+  "scope": "/"
+}
